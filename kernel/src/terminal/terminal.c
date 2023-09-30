@@ -16,6 +16,13 @@ void init_terminal(Terminal *terminal, PSF1_FONT *font, unsigned int *framebuffe
         current_terminal = terminal;
 }
 
+void write_to_serial_port(char c, uint16_t port)
+{
+        while ((inb(port + 5) & 0x20) == 0)
+                ;
+        outb(port, c);
+}
+
 void switch_terminal(Terminal *terminal)
 {
         current_terminal = terminal;
@@ -48,11 +55,13 @@ uint32_t terminal_getpixel(unsigned int x, unsigned int y)
 
 void scroll_up()
 {
+        uint32_t color;
+
         for (int y = 0; y < current_terminal->height - 16; y++)
         {
                 for (int x = 0; x < current_terminal->width; x++)
                 {
-                        uint32_t color = terminal_getpixel(x, y + 16);
+                        color = terminal_getpixel(x, y + 16);
                         terminal_putpixel(x, y, color);
                 }
         }
@@ -61,7 +70,7 @@ void scroll_up()
         {
                 for (int j = current_terminal->height - 15; j < current_terminal->height - 16 + 16; j++)
                 {
-                        terminal_putpixel(i, j, 0x00000000);
+                        terminal_putpixel(i, j, color);
                 }
         }
 }
@@ -101,6 +110,8 @@ void print_character(char c)
                 }
                 current_terminal->cursor_x += 8;
         }
+
+        write_to_serial_port(c, 0x3F8);
 }
 
 void print_string(char *str)
@@ -159,11 +170,8 @@ void print_integer_64(uint64_t v, int base, const char *digits)
         print_string(pointer);
 }
 
-void printf(char *format, ...)
+void vprintf(char *format, va_list args)
 {
-        va_list args;
-        va_start(args, format);
-
         const char *hex_digits = "0123456789ABCDEF";
 
         while (*format != '\0')
@@ -191,20 +199,44 @@ void printf(char *format, ...)
                                 print_integer(d, 10, hex_digits);
                                 break;
                         }
+                        case 'u':
+                        {
+                                unsigned int u = va_arg(args, unsigned int);
+                                print_integer(u, 10, hex_digits);
+                                break;
+                        }
                         case 'x':
                         {
                                 int x = va_arg(args, int);
                                 print_integer(x, 16, hex_digits);
                                 break;
                         }
+                        case 'p':
+                        {
+                                void *p = va_arg(args, void *);
+                                print_integer_64((uint64_t)p, 16, hex_digits);
+                                break;
+                        }
                         case 'l':
                         {
                                 format++;
-                                if (*format == 'l' && *(format + 1) == 'x')
+                                if (*format == 'l')
                                 {
                                         format++;
-                                        uint64_t llx = va_arg(args, uint64_t);
-                                        print_integer_64(llx, 16, hex_digits);
+                                        if (*format == 'u')
+                                        {
+                                                uint64_t llu = va_arg(args, uint64_t);
+                                                print_integer_64(llu, 10, hex_digits);
+                                        }
+                                        else if (*format == 'x')
+                                        {
+                                                uint64_t llx = va_arg(args, uint64_t);
+                                                print_integer_64(llx, 16, hex_digits);
+                                        }
+                                        else
+                                        {
+                                                print_string("Invalid format specifier");
+                                        }
                                 }
                                 else
                                 {
@@ -224,6 +256,48 @@ void printf(char *format, ...)
                 }
                 format++;
         }
+}
 
+void printf(char *format, ...)
+{
+        va_list args;
+        va_start(args, format);
+        vprintf(format, args);
         va_end(args);
+}
+
+void log(char *level, char *format, ...)
+{
+        uint32_t original_color = current_terminal->color;
+        current_terminal->color = 0xCCCCCC;
+        printf("[ ");
+
+        if (strcmp(level, "SUCCESS") == 0)
+        {
+                current_terminal->color = COLOR_SUCCESS;
+        }
+        else if (strcmp(level, "INFO") == 0)
+        {
+                current_terminal->color = COLOR_INFO;
+        }
+        else if (strcmp(level, "WARNING") == 0)
+        {
+                current_terminal->color = COLOR_WARNING;
+        }
+        else if (strcmp(level, "ERROR") == 0)
+        {
+                current_terminal->color = COLOR_ERROR;
+        }
+
+        printf("%s", level);
+        current_terminal->color = 0xCCCCCC;
+        printf(" ] ");
+
+        va_list args;
+        va_start(args, format);
+        vprintf(format, args);
+        va_end(args);
+
+        printf("\n");
+        current_terminal->color = original_color;
 }

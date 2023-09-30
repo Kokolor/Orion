@@ -3,7 +3,13 @@
 
 #include <stdint.h>
 #include <stdarg.h>
+#include <lib/lib.h>
 #include <Pulsar.h>
+
+#define COLOR_SUCCESS 0x4499EE
+#define COLOR_INFO 0xCC44EE
+#define COLOR_WARNING 0xEEBB44
+#define COLOR_ERROR 0xED4444
 
 typedef struct
 {
@@ -26,5 +32,6 @@ void clear_terminal(uint32_t color);
 void terminal_putpixel(unsigned int x, unsigned int y, uint32_t color);
 uint32_t terminal_getpixel(unsigned int x, unsigned int y);
 void printf(char *format, ...);
+void log(char *level, char *format, ...);
 
 #endif
