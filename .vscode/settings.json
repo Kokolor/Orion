@@ -17,7 +17,7 @@
                 "memory.h": "c",
                 "pic.h": "c",
                 "chrono": "c",
-                "taha.h": "c",
+                "Orion.h": "c",
                 "array": "c",
                 "deque": "c",
                 "list": "c",
