@@ -14,6 +14,13 @@ uint8_t inb(uint16_t port)
         return ret;
 }
 
+uint16_t inw(uint16_t port)
+{
+    uint16_t data;
+    asm volatile("inw %1, %0" : "=a"(data) : "Nd"(port));
+    return data;
+}
+
 int strcmp(const char *str1, const char *str2)
 {
         while (*str1 != '\0' && *str2 != '\0')
